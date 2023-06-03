@@ -26,8 +26,8 @@ impl Environment {
         self.env.install()
     }
 
-    pub fn command(&self, program: &str) -> Command {
-        self.env.command(program)
+    pub fn with_env(&self, cmd: Command) -> Command {
+        self.env.with_env(cmd)
     }
 
     pub fn from_folder(dir: &PathBuf) -> Result<Self, ()> {
@@ -49,7 +49,7 @@ pub trait EnvironmentManager {
 
     fn install(&self) -> Result<Output, io::Error>;
 
-    fn command(&self, program: &str) -> Command;
+    fn with_env(&self, cmd: Command) -> Command;
 }
 
 fn has_yaml(dir: &PathBuf, name: &str) -> Result<PathBuf, ()> {
@@ -61,4 +61,16 @@ fn has_yaml(dir: &PathBuf, name: &str) -> Result<PathBuf, ()> {
         }
     }
     return Err(());
+}
+
+// Add/Update/Remove environment variables in `cmd`
+// based on `ref_cmd.get_envs()`
+fn with_envs(cmd: &mut Command, ref_cmd: &Command) {
+    for (key, value) in ref_cmd.get_envs() {
+        if let Some(v) = value {
+            cmd.env(key, v);
+        } else {
+            cmd.env_remove(key);
+        }
+    }
 }

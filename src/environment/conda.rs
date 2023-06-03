@@ -3,6 +3,7 @@ use std::io;
 use std::path::PathBuf;
 use std::process::{Command, Output};
 
+use super::with_envs;
 use super::EnvironmentManager;
 
 #[derive(Debug)]
@@ -52,13 +53,16 @@ impl EnvironmentManager for Conda {
             .output()
     }
 
-    fn command(&self, program: &str) -> Command {
-        let mut cmd = Command::new("conda");
-        cmd.current_dir(self.path())
+    fn with_env(&self, cmd: Command) -> Command {
+        let mut conda_cmd = Command::new("conda");
+        conda_cmd
+            .current_dir(self.path())
             .arg("run")
             .arg("--prefix")
             .arg(self.virtual_environment())
-            .arg(program);
-        return cmd;
+            .arg(cmd.get_program())
+            .args(cmd.get_args());
+        with_envs(&mut conda_cmd, &cmd);
+        return conda_cmd;
     }
 }

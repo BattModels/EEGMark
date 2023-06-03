@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::str;
 
-use super::{has_yaml, EnvironmentManager};
+use super::{has_yaml, with_envs, EnvironmentManager};
 
 #[derive(Debug)]
 pub struct Spack {
@@ -69,11 +69,14 @@ impl EnvironmentManager for Spack {
             .output()
     }
 
-    fn command(&self, program: &str) -> Command {
-        let mut cmd = Command::new(program);
-        cmd.current_dir(self.path())
+    fn with_env(&self, cmd: Command) -> Command {
+        let mut spack_cmd = Command::new(cmd.get_program());
+        spack_cmd
+            .current_dir(self.path())
             .env_clear()
-            .envs(self.spack_env());
-        return cmd;
+            .envs(self.spack_env())
+            .args(cmd.get_args());
+        with_envs(&mut spack_cmd, &cmd);
+        return spack_cmd;
     }
 }

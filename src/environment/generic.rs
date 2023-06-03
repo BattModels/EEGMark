@@ -32,8 +32,8 @@ impl EnvironmentManager for Generic {
             .output()
     }
 
-    fn command(&self, program: &str) -> Command {
-        let mut cmd = Command::new(program);
+    fn with_env(&self, cmd: Command) -> Command {
+        let mut cmd = Command::from(cmd);
         cmd.current_dir(self.path()).env_clear();
         return cmd;
     }

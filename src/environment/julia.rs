@@ -35,8 +35,8 @@ impl EnvironmentManager for Julia {
             .output()
     }
 
-    fn command(&self, program: &str) -> Command {
-        let mut cmd = Command::new(program);
+    fn with_env(&self, cmd: Command) -> Command {
+        let mut cmd = Command::from(cmd);
         cmd.env("JULIA_PROJECT", self.path())
             .env("JULIA_LOAD_PATH", "@")
             .current_dir(self.path());
