@@ -1,11 +1,11 @@
 use regex::Regex;
 use std::collections::HashMap;
-use std::io;
 use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::str;
+use std::{io, path};
 
-use super::{has_yaml, with_envs, EnvironmentManager};
+use super::{has_yaml, which, with_envs, EnvironmentManager};
 
 #[derive(Debug)]
 pub struct Spack {
@@ -23,25 +23,16 @@ impl Spack {
     }
     fn spack_env(&self) -> HashMap<String, String> {
         // Locate Spack
-        let which_spack = Command::new("which")
-            .arg("spack")
-            .output()
-            .expect("Expected which to be on the PATH");
-        let spack_path = str::from_utf8(which_spack.stdout.as_slice())
-            .expect("Expected spack to be on the PATH");
-        let spack_path = PathBuf::from(spack_path);
-        let spack_path = spack_path
-            .parent()
-            .expect("expected spack-exe to be in a directory");
-
-        let activate_script = Command::new(spack_path.to_str().unwrap())
-            .current_dir(self.path())
+        let spack = which("spack").expect("Expected spack to be on the path");
+        let activate_script = Command::new(spack)
             .env_clear()
+            .env("PATH", "/usr/local/bin:/usr/bin:/bin")
+            .current_dir(self.path())
             .arg("env")
             .arg("activate")
             .arg("--sh")
             .arg("--dir")
-            .arg(self.path())
+            .arg(".")
             .output()
             .expect("expected command to be correct");
         let activate_script = str::from_utf8(activate_script.stdout.as_slice())
@@ -54,6 +45,14 @@ impl Spack {
                 env.insert(String::from(&m[1]), String::from(&m[2]));
             }
         }
+        let mut spack_root = which("spack").unwrap();
+        spack_root.pop();
+        spack_root.pop();
+        env.insert(
+            String::from("SPACK_ROOT"),
+            String::from(spack_root.to_str().unwrap()),
+        );
+
         return env;
     }
 }
@@ -64,7 +63,8 @@ impl EnvironmentManager for Spack {
 
     fn install(&self) -> Result<Output, io::Error> {
         Command::new("spack")
-            .arg("-e {self.path()}")
+            .arg("-e")
+            .arg(self.path())
             .arg("install")
             .output()
     }

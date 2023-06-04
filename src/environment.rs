@@ -74,3 +74,15 @@ fn with_envs(cmd: &mut Command, ref_cmd: &Command) {
         }
     }
 }
+
+// Locate the path to an executable using which
+fn which(cmd: &str) -> Option<PathBuf> {
+    let which = Command::new("which")
+        .arg(cmd)
+        .output()
+        .expect("Expected which to be on the PATH");
+    match str::from_utf8(which.stdout.as_slice()) {
+        Ok(path) => return Some(PathBuf::from(path.trim())),
+        Err(_) => return None,
+    }
+}
