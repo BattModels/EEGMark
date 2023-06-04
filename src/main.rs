@@ -53,8 +53,11 @@ fn install_cmd(m: &ArgMatches) {
 fn run_cmd(m: &ArgMatches) {
     let dir = m.get_one::<PathBuf>("dir").expect("Missing directory");
     let bench = Benchmark::from_folder(dir).expect("Not a benchmark directory");
-    let trial = bench.run().unwrap();
-    println!("Result: {} => {:?}", bench.name().to_str().unwrap(), trial);
+    if let Some(trial) = bench.run() {
+        println!("{} => {:?}", bench.name(), trial);
+    } else {
+        println!("benchmarking failed for {}", bench.name())
+    }
 }
 
 fn run_shell(m: &ArgMatches) {

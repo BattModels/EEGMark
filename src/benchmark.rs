@@ -2,11 +2,10 @@ use crate::environment::Environment;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::cmp;
-use std::ffi::OsStr;
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
-use std::process::{ChildStdout, Command, ExitStatus, Output, Stdio};
+use std::process::{ChildStdout, Command, ExitStatus, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 use sysinfo::{CpuExt, CpuRefreshKind, System, SystemExt};
@@ -38,13 +37,14 @@ impl Benchmark {
         };
     }
     /// Return the name of the benchmark
-    pub fn name(&self) -> &OsStr {
-        return self
-            .script
+    pub fn name(&self) -> &str {
+        self.script
             .parent()
             .expect("run scripts should be within a folder")
             .file_name()
-            .expect("directories have filename");
+            .expect("directories have filename")
+            .to_str()
+            .unwrap()
     }
 
     pub fn install(&self) -> io::Result<ExitStatus> {
@@ -101,6 +101,12 @@ fn run_benchmark(cmd: Command) -> Option<Trial> {
     let mut cpu_usage: f32 = 0.0;
     for cpu in sys.cpus() {
         cpu_usage += cpu.cpu_usage();
+    }
+
+    // Check return code
+    let status = process.try_wait().expect("should have exited").unwrap();
+    if !status.success() {
+        return None;
     }
 
     // Look for a score
