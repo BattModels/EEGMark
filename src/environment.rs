@@ -4,10 +4,12 @@ use std::process::{Command, Output};
 use std::str;
 
 // Modules for environment types
+mod apptainer;
 mod conda;
 mod generic;
 mod julia;
 mod spack;
+use apptainer::Apptainer;
 use conda::Conda;
 use generic::Generic;
 use julia::Julia;
