@@ -24,9 +24,7 @@ impl Spack {
     fn spack_env(&self) -> HashMap<String, String> {
         // Locate Spack
         let spack = which("spack").expect("Expected spack to be on the path");
-        let activate_script = Command::new(spack)
-            .env_clear()
-            .env("PATH", "/usr/local/bin:/usr/bin:/bin")
+        let activate_script = super::env_minimal(Command::new(spack))
             .current_dir(self.path())
             .arg("env")
             .arg("activate")

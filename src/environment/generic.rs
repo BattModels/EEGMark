@@ -28,7 +28,7 @@ impl EnvironmentManager for Generic {
     fn install(&self) -> io::Result<ExitStatus> {
         Command::new("bash")
             .current_dir(self.path())
-            .arg(self.path().join("install.sh"))
+            .arg("install.sh")
             .spawn()
             .unwrap()
             .wait()
@@ -36,7 +36,7 @@ impl EnvironmentManager for Generic {
 
     fn with_env(&self, cmd: Command) -> Command {
         let mut cmd = Command::from(cmd);
-        cmd.current_dir(self.path()).env_clear();
-        return cmd;
+        cmd.current_dir(self.path());
+        return super::env_minimal(cmd);
     }
 }

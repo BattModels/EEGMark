@@ -1,3 +1,4 @@
+use std::env;
 use std::io;
 use std::path::PathBuf;
 use std::process::{Command, ExitStatus};
@@ -85,4 +86,13 @@ fn which(cmd: &str) -> Option<PathBuf> {
         Ok(path) => return Some(PathBuf::from(path.trim())),
         Err(_) => return None,
     }
+}
+
+fn env_minimal(cmd: Command) -> Command {
+    let mut cmd = Command::from(cmd);
+    cmd.env_clear().env("PATH", "/usr/local/bin:/usr/bin:/bin");
+    if let Ok(term) = env::var("TERM") {
+        cmd.env("TERM", term);
+    }
+    return cmd;
 }
