@@ -116,7 +116,7 @@ fn run_benchmark(cmd: Command) -> Option<Trial> {
 
 fn score_benchmark(mut stdout: ChildStdout, elapsed: &Duration) -> f64 {
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"^score: ?(?P<score>[\d,+-]+)$").unwrap();
+        static ref RE: Regex = Regex::new(r"^score: ?([\d\.,+-]+)$").unwrap();
     }
     let mut buffer = String::new();
     stdout
