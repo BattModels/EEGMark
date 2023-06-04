@@ -43,11 +43,11 @@ fn install_cmd(m: &ArgMatches) {
     let dir = m
         .get_one::<PathBuf>("dir")
         .expect("Missing directory to install");
-    let output = Benchmark::from_folder(dir)
-        .expect("Not a benchmark directory")
-        .install()
-        .unwrap();
-    println!("{:?}", output);
+    if let Ok(env) = Environment::from_folder(dir) {
+        env.install().expect("Failed to install environment");
+    } else {
+        println!("No environment to install")
+    }
 }
 
 fn run_cmd(m: &ArgMatches) {

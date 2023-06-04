@@ -1,9 +1,9 @@
 use regex::Regex;
 use std::collections::HashMap;
+use std::io;
 use std::path::PathBuf;
-use std::process::{Command, Output};
+use std::process::{Command, ExitStatus};
 use std::str;
-use std::{io, path};
 
 use super::{has_yaml, which, with_envs, EnvironmentManager};
 
@@ -61,12 +61,14 @@ impl EnvironmentManager for Spack {
         &self.path
     }
 
-    fn install(&self) -> Result<Output, io::Error> {
+    fn install(&self) -> io::Result<ExitStatus> {
         Command::new("spack")
             .arg("-e")
             .arg(self.path())
             .arg("install")
-            .output()
+            .spawn()
+            .unwrap()
+            .wait()
     }
 
     fn with_env(&self, cmd: Command) -> Command {

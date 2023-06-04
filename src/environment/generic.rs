@@ -1,6 +1,6 @@
 use std::io;
 use std::path::PathBuf;
-use std::process::{Command, Output};
+use std::process::{Command, ExitStatus};
 
 use super::EnvironmentManager;
 
@@ -25,11 +25,13 @@ impl EnvironmentManager for Generic {
         &self.path
     }
 
-    fn install(&self) -> Result<Output, io::Error> {
+    fn install(&self) -> io::Result<ExitStatus> {
         Command::new("bash")
             .current_dir(self.path())
             .arg(self.path().join("install.sh"))
-            .output()
+            .spawn()
+            .unwrap()
+            .wait()
     }
 
     fn with_env(&self, cmd: Command) -> Command {

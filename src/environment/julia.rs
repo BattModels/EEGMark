@@ -1,6 +1,6 @@
 use std::io;
 use std::path::PathBuf;
-use std::process::{Command, Output};
+use std::process::{Command, ExitStatus};
 
 use super::EnvironmentManager;
 
@@ -25,14 +25,16 @@ impl EnvironmentManager for Julia {
         &self.path
     }
 
-    fn install(&self) -> Result<Output, io::Error> {
+    fn install(&self) -> io::Result<ExitStatus> {
         Command::new("julia")
             .current_dir(self.path())
             .arg("--startup-file=no")
             .arg("--project")
             .arg("--eval")
             .arg("using Pkg; Pkg.instantiate()")
-            .output()
+            .spawn()
+            .unwrap()
+            .wait()
     }
 
     fn with_env(&self, cmd: Command) -> Command {

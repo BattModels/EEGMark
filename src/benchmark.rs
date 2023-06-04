@@ -6,7 +6,7 @@ use std::ffi::OsStr;
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
-use std::process::{ChildStdout, Command, Output, Stdio};
+use std::process::{ChildStdout, Command, ExitStatus, Output, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 use sysinfo::{CpuExt, CpuRefreshKind, System, SystemExt};
@@ -47,7 +47,7 @@ impl Benchmark {
             .expect("directories have filename");
     }
 
-    pub fn install(&self) -> Result<Output, io::Error> {
+    pub fn install(&self) -> io::Result<ExitStatus> {
         return self.environment.install();
     }
 

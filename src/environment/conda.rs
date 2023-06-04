@@ -1,7 +1,8 @@
 use std::fs;
 use std::io;
 use std::path::PathBuf;
-use std::process::{Command, Output};
+use std::process::Command;
+use std::process::ExitStatus;
 
 use super::with_envs;
 use super::EnvironmentManager;
@@ -35,7 +36,7 @@ impl EnvironmentManager for Conda {
         &self.path
     }
 
-    fn install(&self) -> Result<Output, io::Error> {
+    fn install(&self) -> io::Result<ExitStatus> {
         let venv = self.virtual_environment();
         let env = self.environment();
         if venv.exists() {
@@ -50,7 +51,9 @@ impl EnvironmentManager for Conda {
             .arg(venv)
             .arg("--file")
             .arg(env)
-            .output()
+            .spawn()
+            .unwrap()
+            .wait()
     }
 
     fn with_env(&self, cmd: Command) -> Command {

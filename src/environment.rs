@@ -1,6 +1,6 @@
 use std::io;
 use std::path::PathBuf;
-use std::process::{Command, Output};
+use std::process::{Command, ExitStatus};
 use std::str;
 
 // Modules for environment types
@@ -22,7 +22,7 @@ impl Environment {
         self.env.path()
     }
 
-    pub fn install(&self) -> Result<Output, io::Error> {
+    pub fn install(&self) -> io::Result<ExitStatus> {
         self.env.install()
     }
 
@@ -47,7 +47,7 @@ impl Environment {
 pub trait EnvironmentManager {
     fn path(&self) -> &PathBuf;
 
-    fn install(&self) -> Result<Output, io::Error>;
+    fn install(&self) -> io::Result<ExitStatus>;
 
     fn with_env(&self, cmd: Command) -> Command;
 }
