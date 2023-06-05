@@ -1,0 +1,4 @@
+benchmark:
+  maximize_score: True
+hardware:
+  needs_gpu: True
