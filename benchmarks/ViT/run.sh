@@ -1,3 +1,3 @@
 python vit.py
 
-rm -r ckpts/ data/
+rm -rf ckpts/ data/

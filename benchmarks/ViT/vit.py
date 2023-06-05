@@ -184,7 +184,7 @@ def train_model(num_gpus, **kwargs):
         # default_root_dir=os.path.join(CHECKPOINT_PATH, "ViT"),
         accelerator="auto",
         devices=num_gpus,
-        max_epochs=180,
+        max_epochs=10,
         callbacks=[
             ModelCheckpoint(dirpath="ckpts/",
                             save_weights_only=True, mode="max", monitor="val_acc"),
@@ -194,33 +194,26 @@ def train_model(num_gpus, **kwargs):
 
     L.seed_everything(42)  # To be reproducable
     model = ViT(**kwargs)
-    start_time = time.time()
+    start_time = time.perf_counter()
     trainer.fit(model, train_loader, val_loader)
-    end_time = time.time()
+    end_time = time.perf_counter()
     training_time = end_time - start_time
 
     # Load best checkpoint after training
     model = ViT.load_from_checkpoint(trainer.checkpoint_callback.best_model_path)
 
-    # Test best model on validation and test set
-    val_result = trainer.test(model, dataloaders=val_loader, verbose=False)
-    test_result = trainer.test(model, dataloaders=test_loader, verbose=False)
-    result = {"test": test_result[0]["test_acc"], "val": val_result[0]["test_acc"]}
     print(f"score: {1./training_time:f}")
 
-    return model, result
+    return model
+
 
 if __name__=="__main__":
-    # parser = ArgumentParser()
-    # parser.add_argument("--num_gpus", action="store", default=1)
-
-    # args = parser.parse_args()
     if torch.cuda.is_available():
         num_gpus = torch.cuda.device_count()
     else:
         print("No GPU available")
         print(f"score: {0.01:f}")
-        exit()
+        exit(1)
 
     # Path to the folder where the datasets are/should be downloaded (e.g. CIFAR10)
     DATASET_PATH = os.environ.get("PATH_DATASETS", "data/")
@@ -232,17 +225,9 @@ if __name__=="__main__":
     # Ensure that all operations are deterministic on GPU (if used) for reproducibility torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-    print("Device:", device)
-
     # Github URL where saved models are stored for this tutorial
     base_url = "https://raw.githubusercontent.com/phlippe/saved_models/main/"
-    # Files to download
-    pretrained_files = [
-        "tutorial15/ViT.ckpt",
-        "tutorial15/tensorboards/ViT/events.out.tfevents.ViT",
-        "tutorial5/tensorboards/ResNet/events.out.tfevents.resnet",
-    ]
+
     # Loading the training dataset. We need to split it into a training and validation part
     # We need to do a little trick because the validation set should not use the augmentation.
     train_dataset = CIFAR10(root=DATASET_PATH, train=True, transform=train_transform, download=True)
@@ -258,10 +243,8 @@ if __name__=="__main__":
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(train_set, batch_size=128, shuffle=True, drop_last=True, pin_memory=True, num_workers=4)
     val_loader = data.DataLoader(val_set, batch_size=128, shuffle=False, drop_last=False, num_workers=4)
-    test_loader = data.DataLoader(test_set, batch_size=128, shuffle=False, drop_last=False, num_workers=4)
 
-
-    model, results = train_model(
+    model = train_model(
     num_gpus=num_gpus,
     model_kwargs={
         "embed_dim": 256,
