@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::process::ExitStatus;
 
+use super::env_minimal;
 use super::with_envs;
 use super::EnvironmentManager;
 
@@ -17,17 +18,10 @@ impl Conda {
         let env = Conda {
             path: PathBuf::from(dir),
         };
-        if env.environment().is_file() {
+        if dir.join("environment.yml").is_file() {
             return Ok(env);
         }
         Err(())
-    }
-    fn virtual_environment(&self) -> PathBuf {
-        self.path().join(".conda")
-    }
-
-    fn environment(&self) -> PathBuf {
-        self.path().join("environment.yml")
     }
 }
 
@@ -37,32 +31,31 @@ impl EnvironmentManager for Conda {
     }
 
     fn install(&self) -> io::Result<ExitStatus> {
-        let venv = self.virtual_environment();
-        let env = self.environment();
-        if venv.exists() {
-            fs::remove_dir_all(&venv)
+        if self.path.join(".conda").exists() {
+            fs::remove_dir_all(&self.path.join(".conda"))
                 .expect("should be possible to delete an existing .conda directory");
         }
-        Command::new("conda")
+        env_minimal(Command::new("conda"))
             .current_dir(self.path())
             .arg("env")
             .arg("create")
             .arg("--prefix")
-            .arg(venv)
+            .arg(".conda")
             .arg("--file")
-            .arg(env)
+            .arg("environment.yml")
             .spawn()
             .unwrap()
             .wait()
     }
 
     fn with_env(&self, cmd: Command) -> Command {
-        let mut conda_cmd = Command::new("conda");
+        let mut conda_cmd = env_minimal(Command::new("conda"));
         conda_cmd
             .current_dir(self.path())
             .arg("run")
             .arg("--prefix")
-            .arg(self.virtual_environment())
+            .arg(".conda")
+            .arg("--live-stream")
             .arg(cmd.get_program())
             .args(cmd.get_args());
         with_envs(&mut conda_cmd, &cmd);

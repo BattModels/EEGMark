@@ -90,7 +90,29 @@ fn which(cmd: &str) -> Option<PathBuf> {
 
 fn env_minimal(cmd: Command) -> Command {
     let mut cmd = Command::from(cmd);
-    cmd.env_clear().env("PATH", "/usr/local/bin:/usr/bin:/bin");
+    let paths = [
+        PathBuf::from("/usr/local/bin/"),
+        PathBuf::from("/usr/bin"),
+        PathBuf::from("/bin"),
+        which("spack")
+            .expect("spack to be installed")
+            .parent()
+            .unwrap()
+            .to_path_buf(),
+        which("conda")
+            .expect("conda to be installed")
+            .parent()
+            .unwrap()
+            .to_path_buf(),
+        which("juliaup")
+            .expect("juliaup to be installed")
+            .parent()
+            .unwrap()
+            .to_path_buf(),
+    ];
+    let path = paths.map(|f| String::from(f.to_str().unwrap()));
+    let path = path.join(":");
+    cmd.env_clear().env("PATH", path);
     if let Ok(term) = env::var("TERM") {
         cmd.env("TERM", term);
     }
