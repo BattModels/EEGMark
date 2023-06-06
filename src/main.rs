@@ -1,5 +1,6 @@
 use clap::{arg, command, value_parser, ArgMatches, Command};
 use eegmark::benchmark::Benchmark;
+use eegmark::configuration;
 use eegmark::environment::Environment;
 use std::path::PathBuf;
 use std::process;
@@ -10,6 +11,7 @@ fn main() {
         Some(("install", sub_matches)) => install_cmd(sub_matches),
         Some(("run", sub_matches)) => run_cmd(sub_matches),
         Some(("shell", sub_matches)) => run_shell(sub_matches),
+        Some(("init", sub_matches)) => run_init(sub_matches),
         _ => unreachable!(),
     }
 }
@@ -37,6 +39,7 @@ fn cli() -> Command {
                 .about("Launch a shell within the environment")
                 .arg(arg!([dir] "Environment directory").value_parser(value_parser!(PathBuf))),
         )
+        .subcommand(Command::new("init").about("Setup the machine for benchmarking"))
 }
 
 fn install_cmd(m: &ArgMatches) {
@@ -65,4 +68,10 @@ fn run_shell(m: &ArgMatches) {
     let env = Environment::from_folder(dir).expect("Not a benchmark directory");
     let mut shell = env.with_env(process::Command::new("/bin/bash"));
     shell.spawn().unwrap().wait().unwrap();
+}
+
+fn run_init(_m: &ArgMatches) {
+    let config = configuration::setup_environment();
+    println!("{:?}", config);
+    config.to_disk();
 }

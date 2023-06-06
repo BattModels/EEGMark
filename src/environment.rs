@@ -14,6 +14,9 @@ use generic::Generic;
 use julia::Julia;
 use spack::Spack;
 
+use crate::configuration;
+use crate::configuration::Config;
+
 pub struct Environment {
     env: Box<dyn EnvironmentManager>,
 }
@@ -77,41 +80,24 @@ fn with_envs(cmd: &mut Command, ref_cmd: &Command) {
 }
 
 // Locate the path to an executable using which
-fn which(cmd: &str) -> Option<PathBuf> {
+pub fn which(cmd: &str) -> Option<PathBuf> {
     let which = Command::new("which")
         .arg(cmd)
         .output()
         .expect("Expected which to be on the PATH");
-    match str::from_utf8(which.stdout.as_slice()) {
-        Ok(path) => return Some(PathBuf::from(path.trim())),
-        Err(_) => return None,
+    if which.status.success() {
+        match str::from_utf8(which.stdout.as_slice()) {
+            Ok(path) => return Some(PathBuf::from(path.trim())),
+            Err(_) => return None,
+        }
+    } else {
+        return None;
     }
 }
 
 fn env_minimal(cmd: Command) -> Command {
     let mut cmd = Command::from(cmd);
-    let paths = [
-        PathBuf::from("/usr/local/bin/"),
-        PathBuf::from("/usr/bin"),
-        PathBuf::from("/bin"),
-        which("spack")
-            .expect("spack to be installed")
-            .parent()
-            .unwrap()
-            .to_path_buf(),
-        which("conda")
-            .expect("conda to be installed")
-            .parent()
-            .unwrap()
-            .to_path_buf(),
-        which("juliaup")
-            .expect("juliaup to be installed")
-            .parent()
-            .unwrap()
-            .to_path_buf(),
-    ];
-    let path = paths.map(|f| String::from(f.to_str().unwrap()));
-    let path = path.join(":");
+    let path = Config::from_file().expect("Missing config").get_path_env();
     cmd.env_clear().env("PATH", path);
     if let Ok(term) = env::var("TERM") {
         cmd.env("TERM", term);
