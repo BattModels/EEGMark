@@ -43,8 +43,7 @@ impl EnvironmentManager for Conda {
             .arg(".conda")
             .arg("--file")
             .arg("environment.yml")
-            .spawn()
-            .unwrap()
+            .spawn()?
             .wait()
     }
 

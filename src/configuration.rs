@@ -23,11 +23,11 @@ pub struct Config {
 }
 
 impl Config {
-    fn config_directory() -> PathBuf {
-        dirs::home_dir().unwrap().join(".config/eegmark")
+    pub fn config_directory() -> PathBuf {
+        PathBuf::from(".eegmark")
     }
     pub fn from_file() -> io::Result<Config> {
-        match fs::read_to_string(Config::config_directory().join("config")) {
+        match fs::read_to_string(Config::config_directory().join("config.yml")) {
             Ok(s) => match serde_yaml::from_str(&s) {
                 Ok(config) => Ok(config),
                 Err(_) => Err(io::Error::new(
@@ -49,7 +49,7 @@ impl Config {
     pub fn to_disk(self: &Self) -> io::Result<()> {
         let s = serde_yaml::to_string(self).expect("should Serialize");
         fs::create_dir_all(Config::config_directory()).expect("failed to create config directory");
-        fs::write(Config::config_directory().join("config"), s)
+        fs::write(Config::config_directory().join("config.yml"), s)
     }
     pub fn get_path_env(self: &Self) -> String {
         let paths = self.path.to_owned();

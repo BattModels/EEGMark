@@ -1,9 +1,10 @@
-use clap::{arg, command, value_parser, ArgMatches, Command};
+use clap::{arg, command, value_parser, Arg, ArgAction, ArgMatches, Command};
 use eegmark::benchmark::Benchmark;
 use eegmark::configuration;
 use eegmark::environment::Environment;
 use std::path::PathBuf;
 use std::process;
+use walkdir;
 
 fn main() {
     let matches = cli().get_matches();
@@ -12,6 +13,7 @@ fn main() {
         Some(("run", sub_matches)) => run_cmd(sub_matches),
         Some(("shell", sub_matches)) => run_shell(sub_matches),
         Some(("init", sub_matches)) => run_init(sub_matches),
+        Some(("yolo", sub_matches)) => yolo(sub_matches),
         _ => unreachable!(),
     }
 }
@@ -23,16 +25,36 @@ fn cli() -> Command {
         .arg_required_else_help(true)
         .subcommand(
             Command::new("install")
-                .about("Install a benchmarking environment")
+                .about("Install benchmarking environments")
+                .arg(Arg::new("dry-run").short('n').action(ArgAction::SetTrue))
                 .arg(
-                    arg!([dir] "Environment directory to install")
-                        .value_parser(value_parser!(PathBuf)),
+                    Arg::new("dir")
+                        .help("root path to start searching for benchmarks")
+                        .value_parser(value_parser!(PathBuf))
+                        .required(true),
                 ),
         )
         .subcommand(
-            Command::new("run").about("Run benchmark").arg(
-                arg!([dir] "Environment directory to run").value_parser(value_parser!(PathBuf)),
-            ),
+            Command::new("run")
+                .about("Run benchmark")
+                .arg(Arg::new("dry-run").short('n').action(ArgAction::SetTrue))
+                .arg(
+                    Arg::new("dir")
+                        .help("root path to start searching for benchmarks")
+                        .value_parser(value_parser!(PathBuf))
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            Command::new("yolo")
+                .about("Run and install benchmark")
+                .arg(Arg::new("dry-run").short('n').action(ArgAction::SetTrue))
+                .arg(
+                    Arg::new("dir")
+                        .help("root path to start searching for benchmarks")
+                        .value_parser(value_parser!(PathBuf))
+                        .required(true),
+                ),
         )
         .subcommand(
             Command::new("shell")
@@ -42,24 +64,79 @@ fn cli() -> Command {
         .subcommand(Command::new("init").about("Setup the machine for benchmarking"))
 }
 
-fn install_cmd(m: &ArgMatches) {
-    let dir = m
-        .get_one::<PathBuf>("dir")
-        .expect("Missing directory to install");
-    if let Ok(env) = Environment::from_folder(dir) {
-        env.install().expect("Failed to install environment");
-    } else {
-        println!("No environment to install")
-    }
+// Source: https://docs.rs/walkdir/latest/walkdir/struct.IntoIter.html
+fn is_hidden(entry: &walkdir::DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| s.starts_with("."))
+        .unwrap_or(false)
 }
 
+fn install_cmd(m: &ArgMatches) {
+    let dry_run = m.get_flag("dry-run");
+    let root_directory = m.get_one::<PathBuf>("dir").expect("DIR is required");
+    let mut walker = walkdir::WalkDir::new(root_directory).into_iter();
+    loop {
+        let entry = match walker.next() {
+            None => break,
+            Some(Err(err)) => panic!("ERROR: {}", err),
+            Some(Ok(entry)) => entry,
+        };
+        if !entry.file_type().is_dir() || is_hidden(&entry) {
+            continue;
+        }
+        if let Ok(env) = Environment::from_folder(&entry.into_path()) {
+            if dry_run {
+                println!("would install {:?}", env.path());
+            } else if env.install().is_err() {
+                println!("ERROR: unable to install {:?}", env.path());
+            }
+
+            // Found environment, stop descending
+            walker.skip_current_dir();
+        }
+    }
+}
 fn run_cmd(m: &ArgMatches) {
-    let dir = m.get_one::<PathBuf>("dir").expect("Missing directory");
-    let bench = Benchmark::from_folder(dir).expect("Not a benchmark directory");
-    if let Some(trial) = bench.run() {
-        println!("{} => {:?}", bench.name(), trial);
-    } else {
-        println!("benchmarking failed for {}", bench.name())
+    let dry_run = m.get_flag("dry-run");
+    let root_directory = m.get_one::<PathBuf>("dir").expect("DIR is required");
+    let mut walker = walkdir::WalkDir::new(root_directory).into_iter();
+    loop {
+        let entry = match walker.next() {
+            None => break,
+            Some(Err(err)) => panic!("ERROR: {}", err),
+            Some(Ok(entry)) => entry,
+        };
+        if !entry.file_type().is_dir() || is_hidden(&entry) {
+            continue;
+        }
+        if let Ok(bench) = Benchmark::from_folder(&entry.into_path()) {
+            // Found environment, stop descending
+            walker.skip_current_dir();
+
+            if dry_run {
+                println!("would run {:?}", bench.name());
+                continue;
+            }
+            if let Some(trial) = bench.run() {
+                println!(
+                    "Finished benchmarking {} in {}s.",
+                    bench.name(),
+                    trial.elapsed()
+                );
+                if let Err(e) = trial.to_disk(&bench) {
+                    println!(
+                        "ERROR: failed to save benchmarking results for {}: {:?}.\n{}",
+                        bench.name(),
+                        trial,
+                        e,
+                    );
+                }
+            } else {
+                println!("ERROR: benchmarking failed for {}", bench.name());
+            }
+        }
     }
 }
 
@@ -73,5 +150,53 @@ fn run_shell(m: &ArgMatches) {
 fn run_init(_m: &ArgMatches) {
     let config = configuration::setup_environment();
     println!("{:?}", config);
-    config.to_disk();
+    config
+        .to_disk()
+        .expect("Failed to setup machine for benchmarking, see above for info");
+}
+
+fn yolo(m: &ArgMatches) {
+    let dry_run = m.get_flag("dry-run");
+    let root_directory = m.get_one::<PathBuf>("dir").expect("DIR is required");
+    let mut walker = walkdir::WalkDir::new(root_directory).into_iter();
+    loop {
+        let entry = match walker.next() {
+            None => break,
+            Some(Err(err)) => panic!("ERROR: {}", err),
+            Some(Ok(entry)) => entry,
+        };
+        if !entry.file_type().is_dir() || is_hidden(&entry) {
+            continue;
+        }
+        if let Ok(bench) = Benchmark::from_folder(&entry.into_path()) {
+            // Found environment, stop descending
+            walker.skip_current_dir();
+
+            if dry_run {
+                println!("would install and run {:?}", bench.name());
+                continue;
+            }
+            if let Err(e) = bench.install() {
+                println!("ERROR: failed to install {}. err: {}", bench.name(), e);
+                continue;
+            }
+            if let Some(trial) = bench.run() {
+                println!(
+                    "Finished benchmarking {} in {}s.",
+                    bench.name(),
+                    trial.elapsed()
+                );
+                if let Err(e) = trial.to_disk(&bench) {
+                    println!(
+                        "ERROR: failed to save benchmarking results for {}: {:?}. err: {}",
+                        bench.name(),
+                        trial,
+                        e,
+                    );
+                }
+            } else {
+                println!("ERROR: benchmarking failed for {}", bench.name());
+            }
+        }
+    }
 }

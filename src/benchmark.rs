@@ -1,14 +1,17 @@
+use crate::configuration::Config;
 use crate::environment::Environment;
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::cmp;
-use std::io;
-use std::io::Read;
+use serde::{Deserialize, Serialize};
+use serde_json;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{ChildStdout, Command, ExitStatus, Stdio};
-use std::thread;
 use std::time::{Duration, Instant};
+use std::{cmp, fs, io, thread};
 use sysinfo::{CpuExt, CpuRefreshKind, System, SystemExt};
+use uuid::Uuid;
 
 pub struct Benchmark {
     environment: Environment,
@@ -61,14 +64,36 @@ impl Benchmark {
     pub fn run(&self) -> Option<Trial> {
         run_benchmark(self.command())
     }
+
+    pub fn results_directory(&self) -> PathBuf {
+        Config::config_directory().join("results").join(self.name())
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Trial {
     score: f64,
     walltime: Duration,
     max_memory: u64,
     cpu_usage: f32,
+}
+
+impl Trial {
+    pub fn elapsed(self: &Self) -> u64 {
+        return self.walltime.as_secs();
+    }
+    pub fn to_disk(self: &Self, benchmark: &Benchmark) -> io::Result<()> {
+        let id = Uuid::new_v4().hyphenated().to_string();
+        let trial_path = benchmark.results_directory().join(id);
+        fs::create_dir_all(&trial_path)?;
+
+        let buff = serde_json::to_string(&self)?;
+        let mut fid = File::create(trial_path.join("trial.json"))?;
+        match fid.write(buff.as_bytes()) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
 }
 
 fn run_benchmark(cmd: Command) -> Option<Trial> {
