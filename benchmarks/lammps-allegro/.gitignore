@@ -1,0 +1,8 @@
+logs/
+lammps/
+pair_allegro/
+libtorch/
+libtorch*
+out.*
+lammps.sif
+log.lammps
