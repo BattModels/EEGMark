@@ -1,0 +1,35 @@
+
+variable nsteps equal 1000               # equilibration time
+variable nthermo equal 5           # interval for thermo output
+
+timestep        0.002000
+units           metal
+atom_style      atomic
+
+neighbor        1.0 bin
+boundary        p p p
+
+lattice 	bcc 3.5
+region	box block 0 1 0 1 0 1 units lattice
+create_box	1 box
+
+lattice	bcc 3.5 orient x 1 0 0 orient y 0 1 0 orient z 0 0 1  
+create_atoms 1 box
+replicate 30 30 30
+
+mass            1 6.94
+
+newton on
+pair_style      allegro
+pair_coeff     * * li_f32_allegro_model.pth Li
+
+thermo_style    custom step temp pe ke etotal press vol
+thermo          ${nthermo}
+thermo_modify   norm no
+
+# dump            1 all custom ${nthermo} equil_npt_T100.0_dump.lammpstrj id type element x y z vx vy vz fx fy fz
+# dump_modify     1 element Li
+
+fix             1 all npt temp 10 100.0 0.1 iso 0 0 0.5
+run             ${nsteps}
+unfix           1

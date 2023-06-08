@@ -1,0 +1,93 @@
+Bootstrap: docker
+From: oraclelinux:8
+
+%post
+    # CUDA
+    dnf install -y git
+    yum -y install cmake
+    export distro=rhel8
+    export arch=x86_64
+    dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-$distro.repo
+    dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/$distro/$arch/cuda-$distro.repo
+    dnf clean all
+    dnf install -y cuda-11-3.x86_64
+    export PATH=/usr/local/cuda-11.3/bin/:$PATH
+    export LD_LIBRARY_PATH=/usr/local/cuda-11.3/lib64/:$LD_LIBRARY_PATH
+
+    # CUDA-aware OpenMPI
+    dnf install -y wget
+    wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.5.tar.gz
+    gunzip -c openmpi-4.1.5.tar.gz | tar xf -
+    cd openmpi-4.1.5
+    ./configure --with-cuda=/usr/local/cuda-11.3 --prefix=/usr/local
+    make -j4 install
+    cd ../
+
+    # Conda
+    dnf install -y unzip
+    dnf install -y wget
+    mkdir -p opt/conda
+    wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh
+    bash ./Miniconda3-py39_4.12.0-Linux-x86_64.sh -b -p /opt/miniconda3
+    /opt/miniconda3/bin/conda init bash
+    source ~/.bashrc
+
+    # Nequip
+    conda install -y python==3.9
+    conda install -y pytorch==1.11 torchvision torchaudio cudatoolkit==11.3.1 -c pytorch
+    conda install -y pyg -c pyg
+    conda install -y cudnn mkl-include
+    pip install wandb
+    git clone https://github.com/mir-group/nequip.git
+    cd nequip
+    git checkout develop
+    pip install .
+    cd ../
+    git clone https://github.com/mir-group/allegro.git
+    cd allegro
+    git checkout develop
+    pip install .
+    cd ../
+
+    # Pair-nequip and pair-allegro
+    wget https://github.com/lammps/lammps/archive/refs/tags/stable_29Sep2021.tar.gz
+    gunzip stable_29Sep2021.tar.gz
+    tar -xvf stable_29Sep2021.tar
+    git clone https://github.com/mir-group/pair_nequip.git
+    cd pair_nequip
+    ./patch_lammps.sh ../lammps-stable_29Sep2021/
+    cd ../
+    git clone https://github.com/mir-group/pair_allegro.git
+    cd pair_allegro
+    ./patch_lammps.sh ../lammps-stable_29Sep2021/
+    cd ../
+
+    export CUDNN_ROOT="/opt/miniconda3/"
+    wget https://download.pytorch.org/libtorch/cu113/libtorch-cxx11-abi-shared-with-deps-1.12.0%2Bcu113.zip
+    unzip libtorch-cxx11-abi-shared-with-deps-1.12.0+cu113.zip
+    mkdir ~/install
+    mv libtorch ~/install/
+    export LD_LIBRARY_PATH=~/install/libtorch/lib/:$LD_LIBRARY_PATH
+
+    # LAMMPS
+    cd lammps-stable_29Sep2021
+    mkdir allegro-build && cd allegro-build
+    cmake ../cmake -DCMAKE_PREFIX_PATH=~/install/libtorch -DCMAKE_INSTALL_PREFIX=~/install/nequip-lammps -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda/ -DPKG_KOKKOS=ON -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH_HOPPER90=ON -DMKL_INCLUDE_DIR="$CONDA_PREFIX/include"
+    make -j4
+    make install
+    cd ../
+
+    export PATH=/home/opc/install/nequip-lammps/bin:$PATH
+
+%environment
+    export LC_ALL=C
+    export PATH=/usr/games:$PATH
+    export BASH_ENV=/opt/etc/bashrc
+    export LD_LIBRARY_PATH=~/install/libtorch/lib/:$LD_LIBRARY_PATH
+    export PATH=/home/opc/install/nequip-lammps/bin:$PATH
+    export CUDNN_ROOT="/opt/miniconda3/"
+    export PATH=/usr/local/cuda-11.3/bin/:$PATH
+    export LD_LIBRARY_PATH=/usr/local/cuda-11.3/lib64/:$LD_LIBRARY_PATH
+
+%runscript
+    fortune | cowsay | lolcat
